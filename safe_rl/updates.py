@@ -29,21 +29,31 @@ class FixedLambda:
         self.lam, self.budget = float(lam), budget
 
     def update(self, k, train_C, policy, env, rng):
-        return {"p_hat": float(np.mean(train_C)), "moved": 0, "eval_episodes": 0}
+        return {"p_hat": float(np.mean(train_C)), "moved": 0, "eval_episodes": 0, "eval_collisions": 0}
 
 
 class StandardLagrangian:
-    """Baseline: lambda <- max(0, lambda + beta * (p_hat - d)), p_hat from the last K training episodes."""
+    """Baseline: lambda <- max(0, lambda + beta * (p_hat - d)).
 
-    def __init__(self, beta, budget, lam0=0.0, **_):
-        self.lam, self.beta, self.budget = float(lam0), beta, budget
+    n_eval = 0: p_hat from the last K training episodes (the usual practice).
+    n_eval > 0: p_hat from n_eval evaluation episodes of the frozen greedy policy. This variant gets
+                exactly the same data as the gated rule, so comparing the two isolates the effect of gating.
+    """
+
+    def __init__(self, beta, budget, lam0=0.0, n_eval=0, **_):
+        self.lam, self.beta, self.budget, self.n_eval = float(lam0), beta, budget, n_eval
 
     def update(self, k, train_C, policy, env, rng):
-        p_hat = float(np.mean(train_C))
+        if self.n_eval > 0:
+            C, _ = env.rollout(policy, self.n_eval, rng)
+            p_hat, eval_collisions = float(C.mean()), int(C.sum())
+        else:
+            p_hat, eval_collisions = float(np.mean(train_C)), 0
         old = self.lam
         self.lam = max(0.0, self.lam + self.beta * (p_hat - self.budget))
         moved = int(np.sign(self.lam - old))
-        return {"p_hat": p_hat, "moved": moved, "eval_episodes": 0}
+        return {"p_hat": p_hat, "moved": moved, "eval_episodes": self.n_eval,
+                "eval_collisions": eval_collisions}
 
 
 class GatedLagrangian:
@@ -74,7 +84,7 @@ class GatedLagrangian:
         else:
             moved = 0      # evidence is not clear: hold lambda
         return {"p_hat": p_hat, "L": L, "U": U, "delta_k": delta_k,
-                "moved": moved, "eval_episodes": self.n_eval}
+                "moved": moved, "eval_episodes": self.n_eval, "eval_collisions": int(C.sum())}
 
 
 RULES = {"fixed": FixedLambda, "standard": StandardLagrangian, "gated": GatedLagrangian}

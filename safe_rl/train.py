@@ -18,7 +18,7 @@ def run(env_cfg, agent_cfg, rule_cfg, n_episodes, check_every, budget, seed):
     train_C = np.zeros(n_episodes)
     train_G = np.zeros(n_episodes)
     log = {k: [] for k in ["episode", "lam", "p_true", "return_true", "p_goal_true",
-                           "p_hat", "L", "U", "moved", "eval_episodes"]}
+                           "p_hat", "L", "U", "moved", "eval_episodes", "eval_collisions"]}
 
     for ep in range(n_episodes):
         s = env.reset()
@@ -46,6 +46,7 @@ def run(env_cfg, agent_cfg, rule_cfg, n_episodes, check_every, budget, seed):
             log["U"].append(info.get("U", np.nan))
             log["moved"].append(info["moved"])
             log["eval_episodes"].append(info["eval_episodes"])
+            log["eval_collisions"].append(info["eval_collisions"])
 
     out = {k: np.array(v) for k, v in log.items()}
     out["train_C"] = train_C
@@ -72,4 +73,5 @@ def summarize(out, check_every, budget):
         "wrong_direction_moves": int(wrong.sum()),
         "frozen_fraction": float((moved == 0).mean()),
         "eval_episodes_used": int(out["eval_episodes"].sum()),
+        "eval_collisions": int(out["eval_collisions"].sum()),
     }

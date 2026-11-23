@@ -1,0 +1,14 @@
+# Long horizon check: does lambda decay to zero and let the robot drift back into the corridor?
+name: long_check
+seeds: 3
+seed_offset: 0
+n_episodes: 20000
+check_every: 50
+budget: 0.1
+env: {slip: 0.1, step_reward: -1.0, goal_reward: 20.0, max_steps: 100}
+agent: {alpha: 0.1, gamma: 0.99, epsilon: 0.1, q_init: 20.0}
+methods:
+  - {name: standard_b10,      type: standard, beta: 10}
+  - {name: standard_eval_b20, type: standard, beta: 20, n_eval: 1000}
+  - {name: gated_b20, type: gated, beta_up: 20, beta_down: 20, n_eval: 1000, delta: 0.05}
+  - {name: gated_b50, type: gated, beta_up: 50, beta_down: 50, n_eval: 1000, delta: 0.05}

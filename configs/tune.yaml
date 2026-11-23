@@ -1,0 +1,36 @@
+# Step 3: tune the step size of every rule on tuning seeds 0..4.
+# The final comparison (configs/final.yaml) uses different seeds, so we do not tune on the test seeds.
+name: tune
+seeds: 5
+seed_offset: 0
+n_episodes: 6000
+check_every: 50
+budget: 0.1
+
+env:
+  slip: 0.1
+  step_reward: -1.0
+  goal_reward: 20.0
+  max_steps: 100
+
+agent:
+  alpha: 0.1
+  gamma: 0.99
+  epsilon: 0.1
+  q_init: 20.0
+
+methods:
+  # Standard Lagrangian, p_hat from training episodes
+  - {name: standard_b2,  type: standard, beta: 2}
+  - {name: standard_b5,  type: standard, beta: 5}
+  - {name: standard_b10, type: standard, beta: 10}
+  - {name: standard_b20, type: standard, beta: 20}
+  # Standard Lagrangian, p_hat from 1000 evaluation episodes (same data as gated)
+  - {name: standard_eval_b5,  type: standard, beta: 5,  n_eval: 1000}
+  - {name: standard_eval_b10, type: standard, beta: 10, n_eval: 1000}
+  - {name: standard_eval_b20, type: standard, beta: 20, n_eval: 1000}
+  # Gated (ours), Hoeffding, n = 1000
+  - {name: gated_b10,  type: gated, beta_up: 10,  beta_down: 10,  n_eval: 1000, delta: 0.05}
+  - {name: gated_b20,  type: gated, beta_up: 20,  beta_down: 20,  n_eval: 1000, delta: 0.05}
+  - {name: gated_b50,  type: gated, beta_up: 50,  beta_down: 50,  n_eval: 1000, delta: 0.05}
+  - {name: gated_b100, type: gated, beta_up: 100, beta_down: 100, n_eval: 1000, delta: 0.05}

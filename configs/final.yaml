@@ -1,0 +1,29 @@
+# Step 3: final comparison on 20 fresh seeds (100..119), never used for tuning.
+# Step sizes picked from results/tune with one rule for every method:
+#   fewest episodes over budget on tuning seeds 0..4, ties broken by fewer wrong direction moves.
+#   standard: beta 20 | standard_eval: beta 20 | gated: beta 100
+name: final
+seeds: 20
+seed_offset: 100
+n_episodes: 6000
+check_every: 50
+budget: 0.1
+
+env:
+  slip: 0.1
+  step_reward: -1.0
+  goal_reward: 20.0
+  max_steps: 100
+
+agent:
+  alpha: 0.1
+  gamma: 0.99
+  epsilon: 0.1
+  q_init: 20.0
+
+methods:
+  - {name: fixed_0,       type: fixed, lam: 0}
+  - {name: fixed_30,      type: fixed, lam: 30}
+  - {name: standard,      type: standard, beta: 20}
+  - {name: standard_eval, type: standard, beta: 20, n_eval: 1000}
+  - {name: gated,         type: gated, beta_up: 100, beta_down: 100, n_eval: 1000, delta: 0.05}
