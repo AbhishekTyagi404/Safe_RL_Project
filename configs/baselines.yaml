@@ -1,0 +1,24 @@
+name: baselines
+seeds: 5
+n_episodes: 4000
+check_every: 50          # K: training episodes between lambda checks
+budget: 0.1              # d: allowed collision probability per episode
+
+env:
+  slip: 0.1
+  step_reward: -1.0
+  goal_reward: 20.0
+  max_steps: 100
+
+agent:
+  alpha: 0.1
+  gamma: 0.99
+  epsilon: 0.1
+  q_init: 20.0           # optimistic start, see safe_rl/agent.py
+
+methods:
+  - {name: fixed_0,  type: fixed, lam: 0}
+  - {name: fixed_10, type: fixed, lam: 10}
+  - {name: fixed_30, type: fixed, lam: 30}
+  - {name: standard, type: standard, beta: 10.0}
+  - {name: gated_hoeffding, type: gated, beta_up: 50.0, beta_down: 50.0, delta: 0.05, n_eval: 1000}
