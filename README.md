@@ -15,6 +15,8 @@ collision per episode at or below d = 0.1. We compare ways of tuning the collisi
 
 Every rule can use separate step sizes for raising λ (β_up) and lowering it (β_down).
 
+📄 **Final report:** [`report/Final_Report_Confidence_Gated_Lagrangian.docx`](report/Final_Report_Confidence_Gated_Lagrangian.docx) · **Proof:** [`docs/proof.md`](docs/proof.md)
+
 ## Environment
 
 ![Gridworld](docs/figures/gridworld.png)
@@ -32,24 +34,27 @@ Mean ± standard error.
 
 ![Matched metrics](docs/figures/matched_metrics.png)
 
-| Method | Wrong direction λ moves | Episodes over budget | Over budget, 2nd half | λ change, last 20% | Final return |
-|---|---|---|---|---|---|
-| Standard, symmetric (β = 20) | 15.45 ± 0.90 | 445 ± 45 | 98 ± 36 | 1.67 ± 0.71 | 4.26 ± 0.04 |
-| Standard | 8.95 ± 0.68 | **338 ± 18** | 0 | 1.51 ± 0.03 | 4.21 ± 0.02 |
-| Standard + eval data | 0.10 ± 0.07 | 453 ± 21 | 2.5 ± 2.5 | 2.06 ± 0.04 | 4.31 ± 0.02 |
-| **Gated, Hoeffding (ours)** | **0** | 443 ± 24 | 2.5 ± 2.5 | **0.13 ± 0.01** | 4.13 ± 0.11 |
-| Gated, Clopper–Pearson | **0** | 443 ± 20 | 0 | 1.52 ± 0.02 | 4.32 ± 0.02 |
+| Method | Wrong direction λ moves | Episodes over budget | Over budget, 2nd half | λ change, last 20% | Final return | Return, last 20% |
+|---|---|---|---|---|---|---|
+| Standard, symmetric (β = 20) | 15.45 ± 0.90 | 445 ± 45 | 98 ± 36 | 1.67 ± 0.71 | 4.26 ± 0.04 | 4.28 ± 0.01 |
+| Standard | 8.95 ± 0.68 | **338 ± 18** | 0 | 1.51 ± 0.03 | 4.21 ± 0.02 | 4.12 ± 0.05 |
+| Standard + eval data | 0.10 ± 0.07 | 453 ± 21 | 2.5 ± 2.5 | 2.06 ± 0.04 | 4.31 ± 0.02 | 4.27 ± 0.02 |
+| **Gated, Hoeffding (ours)** | **0** | 443 ± 24 | 2.5 ± 2.5 | **0.13 ± 0.01** | 4.13 ± 0.11 | 4.19 ± 0.05 |
+| Gated, Clopper–Pearson | **0** | 443 ± 20 | 0 | 1.52 ± 0.02 | 4.32 ± 0.02 | 4.25 ± 0.04 |
 
 ![Matched curves](docs/figures/matched_curves.png)
 
-**Answer to the research question** (gated Hoeffding vs standard, paired on the same seeds):
+**Answer to the research question** (gated Hoeffding minus standard, paired on the same 20 seeds, from `paired_stats.py`):
 
-| Part of the question | Answer | Paired difference |
-|---|---|---|
-| Does gating make λ steadier? | **Yes, about 11× steadier** | −1.38 ± 0.03 |
-| Does gating reduce episodes over budget? | **No, it adds some** | +105 ± 27 |
-| Is the final return within 5%? | **Yes** (98%) | −0.08 ± 0.10 (not significant) |
-| Wrong direction moves | **0 vs 8.95**, as the proof predicts | −8.95 ± 0.68 |
+| Part of the question | Answer | Mean difference | 95% CI | p (t test) | p (permutation) |
+|---|---|---|---|---|---|
+| Does gating make λ steadier? | **Yes, about 11× steadier** | −1.38 | [−1.45, −1.32] | < 0.0001 | < 0.0001 |
+| Does gating reduce episodes over budget? | **No, it adds some** | +105 | [+48, +162] | 0.001 | 0.001 |
+| Is the return within 5%? (last 20% of checks) | **Yes**, no significant difference | +0.07 | [−0.09, +0.22] | 0.40 | 0.39 |
+| Is the return within 5%? (final check) | **Yes**, no significant difference | −0.08 | [−0.29, +0.13] | 0.43 | 0.62 |
+| Wrong direction moves | **0 vs 8.95**, as the proof predicts | −8.95 | [−10.38, −7.52] | < 0.0001 | < 0.0001 |
+
+Standard errors use the sample standard deviation (n − 1) over seeds; confidence intervals use the t distribution with 19 degrees of freedom; the permutation test is an exact sign flip test over all 2²⁰ sign patterns.
 
 **What we learned**
 
@@ -58,6 +63,10 @@ Mean ± standard error.
 3. **Gating costs some early safety.** It waits for clear evidence before raising λ, while the standard rule reacts to every noisy batch. That shows up as about 105 more episodes over budget, about 92 of them in the first 800 episodes.
 4. **With Hoeffding, gating holds λ almost flat** once the policy is safe, while every other rule keeps lowering it. This is the 11× steadier λ.
 5. **Asymmetric steps, not gating, stop the late relapse.** With symmetric steps every rule slowly drives λ back toward 0 and the robot drifts back into the corridor (see the step 3 results below). Lowering λ 10× slower than it is raised fixes this for every rule.
+
+### Why we report the return averaged over the last 20% of checks
+
+The greedy policy of Q learning keeps changing slightly, so a single snapshot can catch a brief wobble. On seed 109 the gated rule's return was 4.39 to 4.40 for most of its last ten checks, then dropped to 2.20 at the very last one, when one cell next to the start briefly pointed back toward it. Dips like this happen in 0.5% to 2% of late checks for every rule. The averaged return is the steadier measure; we report both.
 
 ### Which confidence bound?
 
@@ -88,6 +97,14 @@ collision probability (about 0.01) is far below the budget, so each rule keeps l
 while the robot is safe:
 
 ![Long horizon](docs/figures/long_check_curves.png)
+
+## Limitations
+
+* **One small tabular environment** with two main routes. With deterministic greedy policies no policy sits close to the budget, so the constraint is never tight.
+* **Episodes over budget are measured at checks.** Every 50 episodes we compute the exact collision probability of the current greedy policy and, if it is above d, count the 50 episodes since the previous check. The greedy policy can change between checks, so this is an approximation.
+* **The 100 step limit is treated as a true end of the episode** by Q learning, not as a cutoff. This affected 27 of 50,000 sampled training episodes (0.05%), almost all in the first 200 episodes, so we left it as is.
+* **Step sizes were tuned on 5 to 10 seeds**, and we did not compare against PID Lagrangian methods.
+* **This is a simulation study**, not a physical robot.
 
 ## Setup
 
@@ -120,6 +137,18 @@ Experiments, in order:
 | `configs/budget_sweep.yaml` | run with `--budget 0.05` and `--budget 0.15` | 0 to 4 | ~1 min each |
 
 Each run prints a table of means over seeds and writes `summary_mean.csv`.
+
+Paired statistics (95% CI, t test, exact permutation test), computed from the saved logs:
+
+```bash
+python paired_stats.py results/final_matched --a gated_asym_hoeff --b standard_asym standard_eval_asym gated_asym_cp
+```
+
+Unit tests (confidence bounds against published values and exact Beta quantiles, simulated coverage, exact evaluation against simulation, update rules), about 2 seconds:
+
+```bash
+python -m pytest tests        # or: python tests/test_core.py
+```
 After `final.yaml`, `long_check.yaml` and `final_matched.yaml` have run, rebuild the figures with:
 
 ```bash
@@ -137,8 +166,9 @@ Results go to `results/<config name>/`:
 | Column | Meaning |
 |---|---|
 | `final_p_true` | exact collision probability of the final greedy policy |
-| `final_return_true` | exact expected return of the final greedy policy |
-| `episodes_over_budget` | training episodes during which the greedy policy's true p was above d |
+| `final_return_true` | exact expected return of the greedy policy at the final check |
+| `return_last20pct` | exact expected return averaged over the last 20% of checks (steadier) |
+| `episodes_over_budget` | K × number of checks where the greedy policy's exact p was above d (measured at checks, see Limitations) |
 | `over_budget_2nd_half` | the same, second half of training only (catches drifting back into the shortcut) |
 | `training_collisions` | crashes that happened while learning |
 | `lambda_max` | highest λ reached (overshoot) |
@@ -158,9 +188,12 @@ safe_rl/
   train.py       training loop and summary metrics
 configs/         experiment settings (one YAML file per experiment)
 docs/proof.md    proof of the wrong direction bound
+report/          final report (Word) and its source
+tests/           unit tests
 docs/figures/    figures used in this README (rebuilt by make_figures.py)
 run_experiment.py
 plot_results.py   training curves for any results folder
+paired_stats.py   paired 95% CIs, t tests and permutation tests between two methods
 make_figures.py   README and report figures
 ```
 
@@ -169,4 +202,6 @@ make_figures.py   README and report figures
 - [x] Step 2: environment, Q learning, fixed and standard Lagrangian baselines, gated update with Hoeffding
 - [x] Step 3: tune β, add the standard + eval data baseline, final comparison with 20 seeds
 - [x] Step 4: Wilson, Bernstein and Clopper–Pearson bounds, sweeps over n, β and d, asymmetric steps, proof of the wrong direction bound
-- [ ] Step 5: report, recorded presentation
+- [x] Unit tests and paired statistics
+- [x] Step 5a: final report
+- [ ] Step 5b: recorded presentation

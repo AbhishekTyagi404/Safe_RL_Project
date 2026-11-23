@@ -59,12 +59,14 @@ def summarize(out, check_every, budget):
     """Scalar metrics for one run."""
     p = out["p_true"]
     moved = out["moved"]
+    tail = max(1, len(p) // 5)                       # last 20% of checks
     # A move is wrong if lambda went up while the true p was under budget, or down while over it.
     wrong = ((moved == 1) & (p <= budget)) | ((moved == -1) & (p > budget))
-    tail = max(1, len(p) // 5)                       # last 20% of checks
     return {
         "final_p_true": float(p[-1]),
         "final_return_true": float(out["return_true"][-1]),
+        # A single snapshot can catch a brief wobble of the greedy policy, so we report this as well.
+        "return_last20pct": float(out["return_true"][-tail:].mean()),
         "episodes_over_budget": int((p > budget).sum() * check_every),
         # Second half only: after learning has settled, so this catches drifting back into the shortcut.
         "over_budget_2nd_half": int((p[len(p) // 2:] > budget).sum() * check_every),
