@@ -1,5 +1,7 @@
 # Confidence Gated Lagrangian Updates for Safe Reinforcement Learning
 
+[![tests](https://github.com/AbhishekTyagi404/Safe_RL_Project/actions/workflows/tests.yml/badge.svg)](https://github.com/AbhishekTyagi404/Safe_RL_Project/actions/workflows/tests.yml)
+
 ECE 59500 Reinforcement Learning course project.
 Team: Abhishek Tyagi, Ashish Kale, Ayush Kumar.
 
@@ -180,7 +182,9 @@ python -m pytest -v
 python -m pytest --cov=safe_rl --cov-report=term-missing
 ```
 
-**Latest results:** 21 passed, 93% line coverage of `safe_rl/`.
+**Continuous integration:** every push to `main` runs the full test suite and a short experiment on GitHub Actions, on Linux and Windows with Python 3.11 and 3.13 (`.github/workflows/tests.yml`). The badge at the top of this page shows the latest run.
+
+**Latest local results:** 21 passed, 93% line coverage of `safe_rl/`.
 
 | Platform | Python | pytest | Result |
 |---|---|---|---|

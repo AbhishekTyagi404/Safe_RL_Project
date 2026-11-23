@@ -7,6 +7,7 @@ Usage:
 import argparse
 import csv
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -17,6 +18,11 @@ from safe_rl.train import run, summarize
 
 
 def main():
+    # The summary table prints Greek letters (λ). Windows consoles and CI runners often use an
+    # older encoding such as cp1252 that has no λ, so switch stdout to UTF-8 where possible.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("config")
     parser.add_argument("--seeds", type=int, default=None, help="override the number of seeds")
