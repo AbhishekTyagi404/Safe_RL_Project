@@ -1,0 +1,19 @@
+# Step 4a: which confidence bound, and how many evaluation episodes n?
+# Tuning seeds 0..9. 10,000 episodes, long enough to see lambda decay and any relapse.
+name: bounds
+seeds: 10
+seed_offset: 0
+n_episodes: 10000
+check_every: 50
+budget: 0.1
+env: {slip: 0.1, step_reward: -1.0, goal_reward: 20.0, max_steps: 100}
+agent: {alpha: 0.1, gamma: 0.99, epsilon: 0.1, q_init: 20.0}
+methods:
+  - {name: standard,          type: standard, beta: 20}
+  - {name: hoeffding_n1000,   type: gated, bound: hoeffding,       beta_up: 100, beta_down: 100, n_eval: 1000}
+  - {name: bernstein_n1000,   type: gated, bound: bernstein,       beta_up: 100, beta_down: 100, n_eval: 1000}
+  - {name: wilson_n1000,      type: gated, bound: wilson,          beta_up: 100, beta_down: 100, n_eval: 1000}
+  - {name: clopper_n1000,     type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 100, n_eval: 1000}
+  - {name: hoeffding_n250,    type: gated, bound: hoeffding,       beta_up: 100, beta_down: 100, n_eval: 250}
+  - {name: clopper_n250,      type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 100, n_eval: 250}
+  - {name: clopper_n100,      type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 100, n_eval: 100}

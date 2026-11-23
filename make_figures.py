@@ -24,12 +24,17 @@ COLORS = {
     "standard": "#d1495b", "standard_b10": "#d1495b",
     "standard_eval": "#edae49", "standard_eval_b20": "#edae49",
     "gated": "#00798c", "gated_b20": "#00798c", "gated_b50": "#30638e",
+    "standard_sym": "#e8a0a8", "standard_asym": "#d1495b", "standard_eval_asym": "#edae49",
+    "gated_asym_hoeff": "#00798c", "gated_asym_cp": "#66a182",
 }
 LABELS = {
     "fixed_0": "Fixed λ = 0", "fixed_30": "Fixed λ = 30",
     "standard": "Standard", "standard_b10": "Standard (β = 10)",
     "standard_eval": "Standard + eval data", "standard_eval_b20": "Standard + eval data (β = 20)",
     "gated": "Gated (ours)", "gated_b20": "Gated (β = 20)", "gated_b50": "Gated (β = 50)",
+    "standard_sym": "Standard, symmetric", "standard_asym": "Standard",
+    "standard_eval_asym": "Standard + eval data",
+    "gated_asym_hoeff": "Gated, Hoeffding", "gated_asym_cp": "Gated, Clopper–Pearson",
 }
 
 plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
@@ -109,35 +114,70 @@ def curves_figure(results_dir, methods, filename, title):
     plt.close(fig)
 
 
-def metrics_figure(results_dir, methods, filename):
+PANELS = {
+    "wrong": "Wrong direction λ moves\n(lower is better)",
+    "over": "Episodes over budget\n(lower is better)",
+    "swing": "λ change in last 20% of training\n(std of λ, lower is steadier)",
+    "ret": "Final true return\n(higher is better)",
+}
+
+
+def metric_values(run, key):
+    p, moved, lam = run["p_true"], run["moved"], run["lam"]
+    if key == "wrong":
+        return (((moved == 1) & (p <= BUDGET)) | ((moved == -1) & (p > BUDGET))).sum()
+    if key == "over":
+        return (p > BUDGET).sum() * (run["episode"][1] - run["episode"][0])
+    if key == "swing":
+        return lam[-max(1, len(lam) // 5):].std()
+    return run["return_true"][-1]
+
+
+def metrics_figure(results_dir, methods, filename, panels=("wrong", "over", "ret"), title=None):
     runs = load(results_dir)
-    panels = [("wrong", "Wrong direction λ moves\n(lower is better)"),
-              ("over", "Episodes over budget\n(lower is better)"),
-              ("ret", "Final true return\n(higher is better)")]
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
-    for ax, (key, title) in zip(axes, panels):
-        means, ses = [], []
-        for name in methods:
-            vals = []
-            for r in runs[name]:
-                p, moved = r["p_true"], r["moved"]
-                if key == "wrong":
-                    vals.append((((moved == 1) & (p <= BUDGET)) | ((moved == -1) & (p > BUDGET))).sum())
-                elif key == "over":
-                    vals.append((p > BUDGET).sum() * (r["episode"][1] - r["episode"][0]))
-                else:
-                    vals.append(r["return_true"][-1])
-            means.append(np.mean(vals))
-            ses.append(np.std(vals) / np.sqrt(len(vals)))
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.8 * len(panels), 4.2))
+    for ax, key in zip(axes, panels):
+        vals = [[metric_values(r, key) for r in runs[m]] for m in methods]
+        means = [np.mean(v) for v in vals]
+        ses = [np.std(v, ddof=1) / np.sqrt(len(v)) for v in vals]
         x = np.arange(len(methods))
         ax.bar(x, means, yerr=ses, capsize=4, color=[COLORS[m] for m in methods])
         ax.set_xticks(x)
-        ax.set_xticklabels([LABELS[m].replace(" + ", "\n+ ") for m in methods], fontsize=8)
-        ax.set_title(title)
+        ax.set_xticklabels([LABELS[m].replace(" + ", "\n+ ").replace(", ", "\n").replace("Clopper–Pearson", "Clopper–\nPearson")
+                            for m in methods], fontsize=8)
+        ax.set_title(PANELS[key])
         ax.grid(axis="y", alpha=0.3)
-    fig.suptitle(f"Final comparison, mean ± standard error over {len(runs[methods[0]])} seeds")
+    n = len(runs[methods[0]])
+    fig.suptitle(title or f"Mean ± standard error over {n} seeds")
     fig.tight_layout()
     fig.savefig(OUT / filename, dpi=150)
+    plt.close(fig)
+
+
+def bounds_figure():
+    """Where each bound lets the gated rule move: U at a safe policy (p = 0.01) and L at the shortcut (p = 0.24)."""
+    from safe_rl.updates import BOUNDS
+    names = {"hoeffding": "Hoeffding", "bernstein": "Empirical Bernstein",
+             "wilson": "Wilson (approximate)", "clopper_pearson": "Clopper–Pearson"}
+    ns = np.array([50, 100, 200, 300, 500, 750, 1000, 1500, 2000])
+    delta_k = 0.05 / (2 * 50 ** 2)                    # the level at check k = 50 (episode 2,500)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.9))
+    for b, label in names.items():
+        U = [BOUNDS[b](0.01, int(n), delta_k)[1] for n in ns]
+        L = [BOUNDS[b](0.24, int(n), delta_k)[0] for n in ns]
+        style = "--" if b == "wilson" else "-"
+        axes[0].plot(ns, U, style, marker="o", markersize=3, label=label)
+        axes[1].plot(ns, L, style, marker="o", markersize=3, label=label)
+    for ax in axes:
+        ax.axhline(BUDGET, color="black", linestyle=":", linewidth=1)
+        ax.set_xlabel("evaluation episodes n")
+        ax.grid(alpha=0.3)
+    axes[0].set_title("Safe policy (p̂ = 0.01): upper bound U\nλ can move down only below the dotted line")
+    axes[1].set_title("Shortcut (p̂ = 0.24): lower bound L\nλ can move up only above the dotted line")
+    axes[0].legend(fontsize=8)
+    fig.suptitle("Confidence bounds at check k = 50 (δ_k = δ / 2k², δ = 0.05)")
+    fig.tight_layout()
+    fig.savefig(OUT / "bounds.png", dpi=150)
     plt.close(fig)
 
 
@@ -149,6 +189,14 @@ def main():
     metrics_figure("results/final", ["standard", "standard_eval", "gated"], "final_metrics.png")
     curves_figure("results/long_check", ["standard_b10", "standard_eval_b20", "gated_b20", "gated_b50"],
                   "long_check_curves.png", "Long horizon check (3 seeds, 20,000 episodes)")
+    matched = ["standard_asym", "standard_eval_asym", "gated_asym_hoeff", "gated_asym_cp"]
+    if Path("results/final_matched").exists():
+        metrics_figure("results/final_matched", ["standard_sym"] + matched, "matched_metrics.png",
+                       panels=("wrong", "over", "swing", "ret"),
+                       title="Matched step sizes (β_up = 20, β_down = 2), 20 held-out seeds, 10,000 episodes")
+        curves_figure("results/final_matched", matched, "matched_curves.png",
+                      "Matched step sizes (20 held-out seeds, 10,000 episodes)")
+    bounds_figure()
     print(f"Saved figures to {OUT}/")
 
 

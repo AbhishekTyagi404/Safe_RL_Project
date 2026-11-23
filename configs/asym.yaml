@@ -1,0 +1,19 @@
+# Step 4b: asymmetric steps. Raise lambda quickly on clear violations, lower it slowly (or never).
+# Clopper-Pearson, n = 1000 (tight and keeps the guarantee). Tuning seeds 0..9, 10,000 episodes.
+name: asym
+seeds: 10
+seed_offset: 0
+n_episodes: 10000
+check_every: 50
+budget: 0.1
+env: {slip: 0.1, step_reward: -1.0, goal_reward: 20.0, max_steps: 100}
+agent: {alpha: 0.1, gamma: 0.99, epsilon: 0.1, q_init: 20.0}
+methods:
+  - {name: standard,         type: standard, beta: 20}
+  - {name: up100_down100,    type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 100, n_eval: 1000}
+  - {name: up100_down10,     type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 10,  n_eval: 1000}
+  - {name: up100_down0,      type: gated, bound: clopper_pearson, beta_up: 100, beta_down: 0,   n_eval: 1000}
+  - {name: up20_down20,      type: gated, bound: clopper_pearson, beta_up: 20,  beta_down: 20,  n_eval: 1000}
+  - {name: up20_down2,       type: gated, bound: clopper_pearson, beta_up: 20,  beta_down: 2,   n_eval: 1000}
+  - {name: up20_down0,       type: gated, bound: clopper_pearson, beta_up: 20,  beta_down: 0,   n_eval: 1000}
+  - {name: up20_down2_hoeff, type: gated, bound: hoeffding,       beta_up: 20,  beta_down: 2,   n_eval: 1000}

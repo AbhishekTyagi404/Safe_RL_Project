@@ -1,0 +1,16 @@
+# Step 4c: give the standard rule the same asymmetric steps, so a gain cannot come from asymmetry alone.
+# Same tuning seeds (0..9) and horizon as configs/asym.yaml.
+name: asym_standard
+seeds: 10
+seed_offset: 0
+n_episodes: 10000
+check_every: 50
+budget: 0.1
+env: {slip: 0.1, step_reward: -1.0, goal_reward: 20.0, max_steps: 100}
+agent: {alpha: 0.1, gamma: 0.99, epsilon: 0.1, q_init: 20.0}
+methods:
+  - {name: standard_up20_down2,       type: standard, beta_up: 20, beta_down: 2}
+  - {name: standard_up20_down0,       type: standard, beta_up: 20, beta_down: 0}
+  - {name: standard_up5_down0.5,      type: standard, beta_up: 5,  beta_down: 0.5}
+  - {name: standard_eval_up20_down2,  type: standard, beta_up: 20, beta_down: 2, n_eval: 1000}
+  - {name: standard_eval_up5_down0.5, type: standard, beta_up: 5,  beta_down: 0.5, n_eval: 1000}

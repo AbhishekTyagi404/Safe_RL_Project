@@ -1,0 +1,16 @@
+# Step 4d: does the picture change with the budget d? Run once per budget:
+#   python run_experiment.py configs/budget_sweep.yaml --budget 0.05
+#   python run_experiment.py configs/budget_sweep.yaml --budget 0.15
+# Tuning seeds 0..4, matched asymmetric steps.
+name: budget_sweep
+seeds: 5
+seed_offset: 0
+n_episodes: 10000
+check_every: 50
+budget: 0.1
+env: {slip: 0.1, step_reward: -1.0, goal_reward: 20.0, max_steps: 100}
+agent: {alpha: 0.1, gamma: 0.99, epsilon: 0.1, q_init: 20.0}
+methods:
+  - {name: standard_asym,      type: standard, beta_up: 20, beta_down: 2}
+  - {name: standard_eval_asym, type: standard, beta_up: 20, beta_down: 2, n_eval: 1000}
+  - {name: gated_asym_hoeff,   type: gated, bound: hoeffding, beta_up: 20, beta_down: 2, n_eval: 1000}

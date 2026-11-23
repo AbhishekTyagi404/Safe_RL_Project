@@ -66,8 +66,11 @@ def summarize(out, check_every, budget):
         "final_p_true": float(p[-1]),
         "final_return_true": float(out["return_true"][-1]),
         "episodes_over_budget": int((p > budget).sum() * check_every),
+        # Second half only: after learning has settled, so this catches drifting back into the shortcut.
+        "over_budget_2nd_half": int((p[len(p) // 2:] > budget).sum() * check_every),
         "training_collisions": int(out["train_C"].sum()),
         "lambda_final": float(out["lam"][-1]),
+        "lambda_max": float(out["lam"].max()),
         "lambda_std_last20pct": float(out["lam"][-tail:].std()),
         "lambda_moves": int((moved != 0).sum()),
         "wrong_direction_moves": int(wrong.sum()),

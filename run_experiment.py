@@ -22,9 +22,14 @@ def main():
     parser.add_argument("--seeds", type=int, default=None, help="override the number of seeds")
     parser.add_argument("--seed-offset", type=int, default=None,
                         help="first seed; use different seeds for tuning and for the final comparison")
+    parser.add_argument("--budget", type=float, default=None,
+                        help="override the budget d; results go to results/<name>_d<budget>")
     args = parser.parse_args()
 
     cfg = yaml.safe_load(open(args.config))
+    if args.budget is not None:
+        cfg["budget"] = args.budget
+        cfg["name"] = f"{cfg['name']}_d{args.budget}"
     n_seeds = args.seeds or cfg["seeds"]
     offset = args.seed_offset if args.seed_offset is not None else cfg.get("seed_offset", 0)
     out_dir = Path("results") / cfg["name"]
@@ -49,8 +54,9 @@ def main():
         writer.writerows(rows)
 
     # Mean over seeds, one row per method.
-    cols = ["final_p_true", "final_return_true", "episodes_over_budget", "training_collisions",
-            "eval_collisions", "lambda_final", "lambda_std_last20pct", "wrong_direction_moves",
+    cols = ["final_p_true", "final_return_true", "episodes_over_budget", "over_budget_2nd_half",
+            "training_collisions", "eval_collisions", "lambda_final", "lambda_max",
+            "lambda_std_last20pct", "wrong_direction_moves",
             "frozen_fraction", "eval_episodes_used"]
     means = []
     for method in cfg["methods"]:
@@ -62,10 +68,12 @@ def main():
         writer.writerows(means)
 
     print(f"\nMean over {n_seeds} seeds (budget d = {cfg['budget']}):")
-    print(f"  {'method':<28}{'final p':>8}{'return':>8}{'ep over':>9}{'λ final':>9}{'λ std':>7}{'wrong':>7}{'frozen':>8}")
+    print(f"  {'method':<28}{'final p':>8}{'return':>8}{'ep over':>9}{'over 2nd':>9}{'λ max':>7}"
+          f"{'λ final':>8}{'λ std':>7}{'wrong':>7}{'frozen':>8}")
     for m in means:
         print(f"  {m['method']:<28}{m['final_p_true']:8.3f}{m['final_return_true']:8.2f}"
-              f"{m['episodes_over_budget']:9.0f}{m['lambda_final']:9.1f}{m['lambda_std_last20pct']:7.2f}"
+              f"{m['episodes_over_budget']:9.0f}{m['over_budget_2nd_half']:9.0f}{m['lambda_max']:7.1f}"
+              f"{m['lambda_final']:8.1f}{m['lambda_std_last20pct']:7.2f}"
               f"{m['wrong_direction_moves']:7.1f}{m['frozen_fraction']:8.2f}")
     print(f"\nSaved results to {out_dir}")
 
