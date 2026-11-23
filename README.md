@@ -54,9 +54,9 @@ Mean ± standard error.
 | Is the return within 5%? (final check) | **Not shown**: no significant difference, but too noisy to establish equivalence (TOST p = 0.11) | −0.08 | [−0.29, +0.13] | 0.43 | 0.62 |
 | Wrong direction moves | **0 vs 8.95**, as the proof predicts | −8.95 | [−10.38, −7.52] | < 0.0001 | < 0.0001 |
 
-Standard errors use the sample standard deviation (n − 1) over seeds; confidence intervals use the t distribution with 19 degrees of freedom; the permutation test is an exact sign flip test over all 2²⁰ sign patterns.
+Standard errors use the sample standard deviation (n − 1) over seeds; confidence intervals use the t distribution with 19 degrees of freedom; the permutation test is an exact sign flip test over all 2²⁰ sign patterns. It does not assume normality, but it does assume that under the null hypothesis each paired difference is symmetric around zero, so that flipping its sign gives an equally likely outcome. Seeds are independent, so the paired differences are independent.
 
-**Return: equivalence, not just "no significant difference".** A non significant difference does not show that two methods are equivalent, so we tested it directly. The margin M is 5% of the standard rule's mean return, fixed in our project proposal before any results. Equivalence by two one sided tests (TOST) at the 0.05 level means the 90% confidence interval lies inside [−M, +M].
+**Return: equivalence, not just "no significant difference".** A non significant difference does not show that two methods are equivalent, so we tested it directly. The margin M is 5% of the standard rule's mean return. It comes from our project proposal, submitted on November 6, 2026, which asked whether the gated rule keeps "the final return within 5% of the standard method"; no experiments had been run at that point. Equivalence by two one sided tests (TOST) at the 0.05 level means the 90% confidence interval lies inside [−M, +M].
 
 | Return measure | Margin M | 90% CI of difference | Non inferiority p | TOST p | Verdict |
 |---|---|---|---|---|---|
@@ -180,7 +180,12 @@ python -m pytest -v
 python -m pytest --cov=safe_rl --cov-report=term-missing
 ```
 
-**Latest result:** 21 passed in about 3 seconds, 93% line coverage of `safe_rl/` (Python 3.13, Linux).
+**Latest results:** 21 passed, 93% line coverage of `safe_rl/`.
+
+| Platform | Python | pytest | Result |
+|---|---|---|---|
+| Windows, Anaconda | 3.13.9 | 8.3.4 | 21 passed in 4.5 s |
+| Linux | 3.13.18 | 9.1.1 | 21 passed in 3.0 s, coverage 93% |
 
 | Module | Coverage | Not covered |
 |---|---|---|

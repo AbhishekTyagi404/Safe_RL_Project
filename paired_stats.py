@@ -6,13 +6,15 @@ For every metric it reports, over seeds i = 1..n:
     SE       = sample standard deviation of D_i (n - 1 in the denominator) / sqrt(n)
     95% CI   = mean +/- t(0.975, n - 1) * SE
     p (t)    = two sided paired t test
-    p (perm) = exact two sided sign flip permutation test (no normality assumption)
+    p (perm) = exact two sided sign flip permutation test. No normality assumption, but it assumes that
+               under H0 each paired difference is symmetric around zero (its sign is exchangeable).
 
 For return metrics it adds two tests against a margin M = (margin_pct / 100) * mean of method B:
     non inferiority: H0 "A is worse than B by at least M", one sided t test on D_i + M
     TOST equivalence: H0 "|A - B| >= M", two one sided t tests; p is the larger of the two.
                       Equivalence at level 0.05 is the same as the 90% CI lying inside [-M, +M].
-The margin should be fixed before looking at results (ours, 5%, comes from the project proposal).
+The margin should be fixed before looking at results. Ours, 5%, comes from the project proposal
+(November 6, 2026), written before any experiments were run.
 
 Usage:
     python paired_stats.py results/final_matched --a gated_asym_hoeff \
