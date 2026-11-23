@@ -182,6 +182,56 @@ def test_wrong_direction_metric():
     assert summarize(out, 50, 0.1)["wrong_direction_moves"] == 2
 
 
+# ---------------- environment step interface, agent and training loop ----------------
+def test_environment_step_without_slip():
+    env = GridWorld(slip=0.0)
+    s = env.reset()
+    assert s == env.start
+    s, r, c, done = env.step(1)                      # right to column 1 (obstacles start at column 2)
+    assert (r, c, done) == (-1.0, 0.0, False)
+    s, r, c, done = env.step(1)                      # right, into the corridor at column 2
+    assert (r, c, done) == (-1.0, 0.0, False)
+    s, r, c, done = env.step(0)                      # up, into an obstacle
+    assert c == 1.0 and done
+    env.reset()
+    for _ in range(8):                               # straight through the corridor to the goal
+        s, r, c, done = env.step(1)
+    assert s == env.goal and done and r == env.step_reward + env.goal_reward and c == 0.0
+
+
+def test_q_learning_update_arithmetic():
+    from safe_rl.agent import QLearning
+    ag = QLearning(3, 2, alpha=0.5, gamma=0.9, epsilon=0.0, q_init=0.0, rng=np.random.default_rng(0))
+    ag.Q[1] = [2.0, 4.0]
+    ag.update(0, 1, -1.0, 1, done=False)            # target = -1 + 0.9 * 4 = 2.6, Q = 0 + 0.5 * 2.6
+    assert math.isclose(ag.Q[0, 1], 1.3)
+    ag.update(0, 0, 5.0, 2, done=True)              # terminal: target = 5, Q = 0 + 0.5 * 5
+    assert math.isclose(ag.Q[0, 0], 2.5)
+    # Q[0] = [2.5, 1.3] -> action 0; Q[1] = [2, 4] -> action 1; Q[2] = [0, 0] -> first index
+    assert ag.act(1) == 1 and list(ag.greedy_policy()) == [0, 1, 0]
+
+
+def test_training_run_is_reproducible():
+    from safe_rl.train import run
+    cfg = dict(env_cfg={}, agent_cfg={"q_init": 20.0}, n_episodes=300, check_every=50, budget=0.1)
+    rule = {"type": "gated", "bound": "hoeffding", "beta_up": 20, "beta_down": 2, "n_eval": 200}
+    a, _ = run(rule_cfg=rule, seed=7, **cfg)
+    b, _ = run(rule_cfg=rule, seed=7, **cfg)
+    assert len(a["lam"]) == 300 // 50 and len(a["train_C"]) == 300
+    for key in ["lam", "p_true", "return_true", "train_C", "final_policy"]:
+        assert np.array_equal(a[key], b[key]), key        # same seed, same results
+
+
+def test_training_metrics_are_consistent():
+    from safe_rl.train import run, summarize
+    out, _ = run({}, {"q_init": 20.0}, {"type": "standard", "beta": 20}, 300, 50, 0.1, seed=3)
+    m = summarize(out, 50, 0.1)
+    assert m["episodes_over_budget"] == int((out["p_true"] > 0.1).sum()) * 50
+    assert 0 <= m["over_budget_2nd_half"] <= m["episodes_over_budget"] <= 300
+    assert m["training_collisions"] == int(out["train_C"].sum())
+    assert m["eval_episodes_used"] == 0 and 0.0 <= m["frozen_fraction"] <= 1.0
+
+
 if __name__ == "__main__":
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]
     for name, f in tests:

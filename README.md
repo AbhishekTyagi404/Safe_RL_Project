@@ -50,11 +50,18 @@ Mean ± standard error.
 |---|---|---|---|---|---|
 | Does gating make λ steadier? | **Yes, about 11× steadier** | −1.38 | [−1.45, −1.32] | < 0.0001 | < 0.0001 |
 | Does gating reduce episodes over budget? | **No, it adds some** | +105 | [+48, +162] | 0.001 | 0.001 |
-| Is the return within 5%? (last 20% of checks) | **Yes**, no significant difference | +0.07 | [−0.09, +0.22] | 0.40 | 0.39 |
-| Is the return within 5%? (final check) | **Yes**, no significant difference | −0.08 | [−0.29, +0.13] | 0.43 | 0.62 |
+| Is the return within 5%? (last 20% of checks) | **Yes**, equivalent within ±5% by TOST (p = 0.037) | +0.07 | [−0.09, +0.22] | 0.40 | 0.39 |
+| Is the return within 5%? (final check) | **Not shown**: no significant difference, but too noisy to establish equivalence (TOST p = 0.11) | −0.08 | [−0.29, +0.13] | 0.43 | 0.62 |
 | Wrong direction moves | **0 vs 8.95**, as the proof predicts | −8.95 | [−10.38, −7.52] | < 0.0001 | < 0.0001 |
 
 Standard errors use the sample standard deviation (n − 1) over seeds; confidence intervals use the t distribution with 19 degrees of freedom; the permutation test is an exact sign flip test over all 2²⁰ sign patterns.
+
+**Return: equivalence, not just "no significant difference".** A non significant difference does not show that two methods are equivalent, so we tested it directly. The margin M is 5% of the standard rule's mean return, fixed in our project proposal before any results. Equivalence by two one sided tests (TOST) at the 0.05 level means the 90% confidence interval lies inside [−M, +M].
+
+| Return measure | Margin M | 90% CI of difference | Non inferiority p | TOST p | Verdict |
+|---|---|---|---|---|---|
+| Averaged over last 20% of checks | 0.206 | [−0.065, +0.194] | 0.0009 | 0.037 | **Equivalent within ±5%** (little room at the upper end) |
+| Final check only | 0.211 | [−0.256, +0.093] | 0.11 | 0.11 | **Inconclusive**: one snapshot is too noisy |
 
 **What we learned**
 
@@ -138,17 +145,12 @@ Experiments, in order:
 
 Each run prints a table of means over seeds and writes `summary_mean.csv`.
 
-Paired statistics (95% CI, t test, exact permutation test), computed from the saved logs:
+Paired statistics (95% CI, t test, exact permutation test, and non inferiority and TOST equivalence tests for return with a 5% margin), computed from the saved logs:
 
 ```bash
 python paired_stats.py results/final_matched --a gated_asym_hoeff --b standard_asym standard_eval_asym gated_asym_cp
 ```
 
-Unit tests (confidence bounds against published values and exact Beta quantiles, simulated coverage, exact evaluation against simulation, update rules), about 2 seconds:
-
-```bash
-python -m pytest tests        # or: python tests/test_core.py
-```
 After `final.yaml`, `long_check.yaml` and `final_matched.yaml` have run, rebuild the figures with:
 
 ```bash
@@ -160,6 +162,32 @@ Results go to `results/<config name>/`:
 - `summary_mean.csv`: mean over seeds, one row per method
 - `training_curves.png`: λ, true collision probability and true return over training
 - `<method>_seed<k>.npz`: full logs of each run
+
+## Testing
+
+The project includes 21 automated unit tests (`tests/test_core.py`) covering:
+
+- **Confidence bounds** (Hoeffding, empirical Bernstein, Wilson, Clopper–Pearson): checked against published reference values, exact Beta quantiles and the constants of Maurer and Pontil (2009), Theorem 4
+- **Bound properties**: ordering, staying inside [0, 1], narrowing as n grows, and simulated coverage of at least 1 − δ for the bounds with a finite sample guarantee
+- **Environment**: transition probabilities, the step interface, and exact evaluation against 200,000 simulated episodes per policy
+- **Q learning** update arithmetic and greedy policy
+- **λ update rules**: moving up, moving down and holding, and asymmetric steps
+- **Metrics and training loop**: wrong direction moves, episodes over budget, and identical results when a run is repeated with the same seed
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -v
+python -m pytest --cov=safe_rl --cov-report=term-missing
+```
+
+**Latest result:** 21 passed in about 3 seconds, 93% line coverage of `safe_rl/` (Python 3.13, Linux).
+
+| Module | Coverage | Not covered |
+|---|---|---|
+| `agent.py` | 100% | |
+| `train.py` | 100% | |
+| `updates.py` | 94% | edge branches of the binomial helper |
+| `gridworld.py` | 87% | `render_policy`, a text printout used only for inspection |
 
 ## Metrics (in `summary.csv`)
 
@@ -189,11 +217,11 @@ safe_rl/
 configs/         experiment settings (one YAML file per experiment)
 docs/proof.md    proof of the wrong direction bound
 report/          final report (Word) and its source
-tests/           unit tests
+tests/           unit tests (21)
 docs/figures/    figures used in this README (rebuilt by make_figures.py)
 run_experiment.py
 plot_results.py   training curves for any results folder
-paired_stats.py   paired 95% CIs, t tests and permutation tests between two methods
+paired_stats.py   paired 95% CIs, t tests, permutation tests, non inferiority and TOST equivalence
 make_figures.py   README and report figures
 ```
 
@@ -202,6 +230,6 @@ make_figures.py   README and report figures
 - [x] Step 2: environment, Q learning, fixed and standard Lagrangian baselines, gated update with Hoeffding
 - [x] Step 3: tune β, add the standard + eval data baseline, final comparison with 20 seeds
 - [x] Step 4: Wilson, Bernstein and Clopper–Pearson bounds, sweeps over n, β and d, asymmetric steps, proof of the wrong direction bound
-- [x] Unit tests and paired statistics
+- [x] Unit tests (21 passing, 93% coverage) and paired statistics with TOST equivalence
 - [x] Step 5a: final report
 - [ ] Step 5b: recorded presentation

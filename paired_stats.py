@@ -8,6 +8,12 @@ For every metric it reports, over seeds i = 1..n:
     p (t)    = two sided paired t test
     p (perm) = exact two sided sign flip permutation test (no normality assumption)
 
+For return metrics it adds two tests against a margin M = (margin_pct / 100) * mean of method B:
+    non inferiority: H0 "A is worse than B by at least M", one sided t test on D_i + M
+    TOST equivalence: H0 "|A - B| >= M", two one sided t tests; p is the larger of the two.
+                      Equivalence at level 0.05 is the same as the 90% CI lying inside [-M, +M].
+The margin should be fixed before looking at results (ours, 5%, comes from the project proposal).
+
 Usage:
     python paired_stats.py results/final_matched --a gated_asym_hoeff \
         --b standard_asym standard_eval_asym gated_asym_cp
@@ -58,6 +64,23 @@ def t_test_p(d):
         return float(2 * _t_sf(t, n - 1))
 
 
+def one_sided_p(t_stat, df):
+    """P(T > t_stat)."""
+    try:
+        from scipy.stats import t as tdist
+        return float(tdist.sf(t_stat, df))
+    except ImportError:
+        return float(_t_sf(t_stat, df)) if t_stat >= 0 else 1.0 - float(_t_sf(-t_stat, df))
+
+
+def t90(df):
+    try:
+        from scipy.stats import t
+        return float(t.ppf(0.95, df))
+    except ImportError:
+        return {19: 1.729}.get(df, 1.645)
+
+
 def sign_flip_p(d):
     """Exact permutation test: under H0 each paired difference is equally likely to have either sign."""
     n = len(d)
@@ -89,6 +112,8 @@ def main():
     ap.add_argument("results_dir")
     ap.add_argument("--a", required=True, help="method A")
     ap.add_argument("--b", nargs="+", required=True, help="one or more methods B")
+    ap.add_argument("--margin-pct", type=float, default=5.0,
+                    help="equivalence and non inferiority margin for return, in percent of B's mean")
     args = ap.parse_args()
     data = load(args.results_dir)
 
@@ -108,9 +133,28 @@ def main():
             out_rows.append({"a": args.a, "b": b, "metric": m, "n": n, "mean_diff": mean, "se": se,
                              "ci95_low": lo, "ci95_high": hi, "p_t": pt, "p_perm": pp})
 
+        print(f"\n  Return against a margin of {args.margin_pct:g}% of {b}'s mean:")
+        print(f"  {'metric':<24}{'margin':>8}{'90% CI':>22}{'p non inf.':>12}{'p TOST':>9}  verdict")
+        for m in ["final_return_true", "return_last20pct"]:
+            d = np.array([data[args.a][s][m] - data[b][s][m] for s in seeds])
+            margin = args.margin_pct / 100 * np.mean([data[b][s][m] for s in seeds])
+            mean, se = d.mean(), d.std(ddof=1) / np.sqrt(n)
+            lo90, hi90 = mean - t90(n - 1) * se, mean + t90(n - 1) * se
+            p_noninf = one_sided_p((mean + margin) / se, n - 1)          # H0: mean <= -margin
+            p_upper = one_sided_p((margin - mean) / se, n - 1)           # H0: mean >= +margin
+            p_tost = max(p_noninf, p_upper)
+            verdict = ("equivalent within margin" if p_tost < 0.05 else
+                       "not worse by more than margin" if p_noninf < 0.05 else "inconclusive")
+            print(f"  {m:<24}{margin:8.3f}   [{lo90:8.3f}, {hi90:8.3f}]{p_noninf:12.4f}{p_tost:9.4f}  {verdict}")
+            for r in out_rows:
+                if r["b"] == b and r["metric"] == m:
+                    r.update({"margin": margin, "ci90_low": lo90, "ci90_high": hi90,
+                              "p_noninferiority": p_noninf, "p_tost": p_tost, "verdict": verdict})
+
     out = Path(args.results_dir) / f"paired_{args.a}.csv"
     with open(out, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(out_rows[0].keys()))
+        fields = list(dict.fromkeys(k for r in out_rows for k in r))
+        w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
         w.writerows(out_rows)
     print(f"\nSaved {out}")
